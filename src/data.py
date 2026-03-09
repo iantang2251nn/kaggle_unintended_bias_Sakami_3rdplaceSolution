@@ -7,7 +7,7 @@ from torch.utils.data import Dataset, Sampler, DataLoader
 
 class TextDataset(Dataset):
 
-    def __init__(self, token_lists: List[List[int]], targets: np.ndarray = None, identities: np.ndarray = None,
+    def __init__(self, token_lists: list, targets: np.ndarray = None, identities: np.ndarray = None,
                  annotator_counts: np.ndarray = None):
         assert targets is None or type(targets) == np.ndarray
         assert identities is None or type(identities) == np.ndarray
@@ -84,19 +84,19 @@ class TokenDataset(Dataset):
             self.targets = targets
         else:
             self.targets = np.random.randint(2, size=(len(seqs),))
-        
+
         self.seqs = seqs
         self.maxlen = maxlen
-        
+
     def __len__(self):
         return len(self.seqs)
-        
+
     def get_keys(self):
         lens = np.fromiter(
             ((min(self.maxlen, len(seq))) for seq in self.seqs),
             dtype=np.int32)
         return lens
-        
+
     def __getitem__(self, index):
         return index, self.seqs[index], self.targets[index]
 
@@ -157,7 +157,7 @@ class BucketSampler(Sampler):
 
     def __len__(self):
         return len(self.sort_keys)
-        
+
     def prepare_buckets(self, indices=None):
         lens = - self.sort_keys
         assert self.bucket_size % self.batch_size == 0 or self.bucket_size == len(lens)
@@ -192,13 +192,13 @@ class BucketSampler(Sampler):
                     assert extra_batch is None
                     assert batch is not None
                     extra_batch = batch
-    
+
             # shuffling batches within buckets
             if self.shuffle:
                 batches = shuffle(batches)
             for batch in batches:
                 new_indices.extend(batch)
-    
+
         if extra_batch is not None:
             new_indices.extend(extra_batch)
         return indices[new_indices]

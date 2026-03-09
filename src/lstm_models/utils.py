@@ -11,10 +11,10 @@ from tqdm import tqdm
 from .optim import AdamW
 from ..data import TextDataset, LengthBucketingDataLoader
 from ..metrics import JigsawEvaluator, accuracy
-from ...config.base import IDENTITY_COLUMNS
+from config.base import IDENTITY_COLUMNS
 
 
-def train(model: nn.Module, loss_fn: nn.Module, train_dataset: TextDataset, valid_dataset: TextDataset,
+def train(model, loss_fn, train_dataset: TextDataset, valid_dataset: TextDataset,
           device, batch_size=512, num_epochs=50, tolerance=10, lr=5e-3):
     start_time = time.time()
     optimizer = AdamW(model.parameters(), lr=lr, weight_decay=0.000025)
@@ -143,7 +143,7 @@ def make_aggregated_score_table(records):
 
 
 def make_subgroup_score_table(records, score_type):
-    scores = []    
+    scores = []
     for i, record in enumerate(records):
         for dataset_type in ['train', 'valid']:
             dataset_record = record[dataset_type]
@@ -152,7 +152,7 @@ def make_subgroup_score_table(records, score_type):
                 'type': dataset_type,
                 **dataset_record['metrics'][f'{score_type}_auc'],
                 'mean_score': dataset_record['metrics'][f'mean_{score_type}_auc'],
-            })        
+            })
     return pd.DataFrame(scores, columns=['fold', 'type', 'mean_score'] + IDENTITY_COLUMNS)
 
 
@@ -176,21 +176,21 @@ def display_tables(records_dir: Path, verbose=True):
 
     fold_records = []
     for i in range(6):
-        try: 
+        try:
             fold_records.append(json.load(open(records_dir / f'records.{i}.json')))
         except FileNotFoundError:
             pass
     best_records = [choose_best_record(fold_record) for fold_record in fold_records]
-        
+
     print("Score overview")
     agg_score_table = make_aggregated_score_table(best_records).query("type == 'valid'")
     if verbose:
         print(agg_score_table)
     print(agg_score_table.describe().loc[['mean', 'std'], agg_score_table.columns[2:]])
-    
+
     print("Subgroup AUCs")
     display_subgroup_tables(best_records, 'subgroup')
-    
+
     print("BNSP AUCs")
     display_subgroup_tables(best_records, 'bnsp')
 
@@ -223,14 +223,14 @@ class EMA(object):
                 param.data = self.shadow[name]
 
     def on_batch_end(self, model):
-        if self.level is 'batch':
+        if self.level == 'batch':
             self.cnt -= 1
             if self.cnt == 0:
                 self._update(model)
                 self.cnt = self.n
 
     def on_epoch_end(self, model):
-        if self.level is 'epoch':
+        if self.level == 'epoch':
             self._update(model)
 
 

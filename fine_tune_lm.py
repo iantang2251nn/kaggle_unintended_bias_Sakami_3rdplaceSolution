@@ -2,7 +2,6 @@ from argparse import ArgumentParser
 from pathlib import Path
 import warnings
 
-from apex import amp
 import numpy as np
 import pandas as pd
 import torch
@@ -17,7 +16,7 @@ from config.base import (
 from src.data import TextDataset, LengthBucketingDataLoader
 from src.loss import CustomLoss
 from src.metrics import JigsawEvaluator
-from src.utils import timer, seed_torch, load_config
+from src.utils import timer, seed_torch, load_config, get_device
 from src.weights import training_weights
 
 from src.language_models.models import GPT2ClassificationHeadModel
@@ -62,7 +61,7 @@ def main():
     MODE = args.lm_model[:4]
     LOWER_CASE = 'uncased' in args.lm_model
     LARGE_MODEL = 'large' in args.lm_model
-    DEVICE = torch.device(config.device)
+    DEVICE = get_device()
 
     if config.old_data:
         lm_model_name += '_old_fine_tune'
@@ -75,10 +74,10 @@ def main():
         valid_size = 0
         shuffle_seed = config.seed
 
-    OUT_DIR = Path(f'../output/{lm_model_name}/')
+    OUT_DIR = Path(f'./output/{lm_model_name}/')
     TEST_SUBMISSION = OUT_DIR / 'submission.csv'
     VALID_SUBMISSION = OUT_DIR / 'valid_submission.csv'
-    OUT_DIR.mkdir(exist_ok=True)
+    OUT_DIR.mkdir(exist_ok=True, parents=True)
 
     warnings.filterwarnings('ignore')
     seed_torch(config.seed)
@@ -180,7 +179,6 @@ def main():
                                     warmup=config.warmup,
                                     t_total=num_train_optimization_steps)
 
-        model, optimizer = amp.initialize(model, optimizer, opt_level='O1', verbosity=0)
         model = model.train()
 
         batch_count = len_train // config.batch_size
@@ -200,8 +198,7 @@ def main():
             for i, (x_batch, _, a_batch, y_batch, y_identity_batch) in tk0:
                 y_pred = model(x_batch.to(DEVICE), attention_mask=(x_batch > 0).to(DEVICE), labels=None)
                 loss = loss_fn(y_pred, y_batch.to(DEVICE))
-                with amp.scale_loss(loss, optimizer) as scaled_loss:
-                    scaled_loss.backward()
+                loss.backward()
                 if (i + 1) % config.accumulation_steps == 0:
                     optimizer.step()
                     optimizer.zero_grad()
@@ -221,7 +218,7 @@ def main():
             valid_prediction = predict(model, TextDataset(X_valid), device=DEVICE)
             valid_submission = pd.DataFrame({
                 'id': df_valid['id'],
-                'prediction': valid_prediction 
+                'prediction': valid_prediction
             })
             valid_submission.to_csv(VALID_SUBMISSION, index=False)
             print(f'validation score: {final_score:.5f}')
@@ -229,7 +226,7 @@ def main():
         test_prediction = predict(model, TextDataset(X_test), device=DEVICE)
         submission = pd.DataFrame({
             'id': df_test['id'],
-            'prediction': test_prediction 
+            'prediction': test_prediction
         })
         submission.to_csv(TEST_SUBMISSION, index=False)
 

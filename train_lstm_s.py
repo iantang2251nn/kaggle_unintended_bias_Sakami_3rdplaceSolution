@@ -21,7 +21,7 @@ from config.base import (
 
 from src.data import TokenDataset, collate_fn, BucketSampler
 from src.metrics import JigsawEvaluator
-from src.utils import timer, seed_torch, send_line_notification, load_config
+from src.utils import timer, seed_torch, load_config, get_device
 from src.weights import training_weights_s
 
 from src.lstm_models.load_data import load_embedding
@@ -58,13 +58,13 @@ def main():
     config.setdefault('device', 'cuda')
     config.setdefault('seed', 1234)
 
-    device = torch.device(config.device)
+    device = get_device()
 
-    OUT_DIR = Path(f'../output/{args.lstm_model}/')
+    OUT_DIR = Path(f'./output/{args.lstm_model}/')
     MODEL_STATE = OUT_DIR / 'pytorch_model.bin'
     submission_file_name = 'valid_submission.csv' if args.valid else 'submission.csv'
     SUBMISSION_PATH = OUT_DIR / submission_file_name
-    OUT_DIR.mkdir(exist_ok=True)
+    OUT_DIR.mkdir(exist_ok=True, parents=True)
 
     warnings.filterwarnings('ignore')
     seed_torch(config.seed)
@@ -88,7 +88,7 @@ def main():
 
         train['comment_text'] = train['comment_text'].apply(preprocess)
         test['comment_text'] = test['comment_text'].apply(preprocess)
-        
+
         # replace blank with nan
         train['comment_text'].replace('', np.nan, inplace=True)
         test['comment_text'].replace('', np.nan, inplace=True)
@@ -99,7 +99,7 @@ def main():
         # fill up the missing values
         train_x = train['comment_text'].fillna('_##_').values
         test_x = test['comment_text'].fillna('_##_').values
-        
+
         # get the target values
         weights = training_weights_s(train, TOXICITY_COLUMN, IDENTITY_COLUMNS)
         train_y = np.vstack([train[TOXICITY_COLUMN].values, weights]).T
@@ -109,7 +109,7 @@ def main():
         test_nan_mask = test_x == '_##_'
         y_binary = (train_y[:, 0] >= 0.5).astype(int)
         y_identity_binary = (train_y_identity >= 0.5).astype(int)
-        
+
         vocab = build_vocab(chain(train_x, test_x), config.max_features)
         embedding_matrix = load_embedding(EMBEDDING_FASTTEXT, vocab['token2id'])
 
@@ -154,7 +154,7 @@ def main():
                                        last_lr=config.last_lr, warmup=config.warmup)
 
             all_test_preds = []
-            
+
             for epoch in range(config.train_epochs):
                 start_time = time.time()
                 model.train()
@@ -177,7 +177,7 @@ def main():
                 print('Epoch {}/{} \t time={:.2f}s'.format(
                     epoch + 1, config.train_epochs, elapsed_time))
 
-                all_test_preds.append(eval_model(model, test_loader))
+                all_test_preds.append(eval_model(model, test_loader, device))
                 ema.on_epoch_end(model)
 
             ema.set_weights(ema_model)
@@ -187,7 +187,7 @@ def main():
             checkpoint_weights = np.array([2 ** epoch for epoch in range(config.train_epochs)])
             checkpoint_weights = checkpoint_weights / checkpoint_weights.sum()
 
-            ema_test_y = eval_model(ema_model, test_loader)
+            ema_test_y = eval_model(ema_model, test_loader, device)
             test_y = np.average(all_test_preds, weights=checkpoint_weights, axis=0)
             test_y = np.mean([test_y, ema_test_y], axis=0)
             test_y[test_nan_mask] = nan_pred
@@ -200,7 +200,7 @@ def main():
     with timer('train'):
         splits = list(
             StratifiedKFold(n_splits=config.n_splits, shuffle=True, random_state=config.seed).split(train_x, y_binary))
-        
+
         if config.pseudo_label:
             splits_test = list(KFold(n_splits=config.n_splits, shuffle=True, random_state=config.seed).split(test_x))
             splits = zip(splits, splits_test)
@@ -233,7 +233,7 @@ def main():
                                           bucket_size=config.batch_size * 20, batch_size=config.batch_size)
             valid_sampler = BucketSampler(valid_dataset, valid_dataset.get_keys(),
                                           batch_size=config.batch_size, shuffle_data=False)
-            
+
             train_loader = DataLoader(train_dataset, batch_size=config.batch_size, shuffle=False,
                                       sampler=train_sampler, num_workers=0, collate_fn=collate_fn)
             valid_loader = DataLoader(valid_dataset, batch_size=config.batch_size, shuffle=False,
@@ -282,7 +282,7 @@ def main():
                 print('Epoch {}/{} \t auc={:.5f} \t time={:.2f}s'.format(
                     epoch + 1, config.train_epochs, auc_score, elapsed_time))
 
-                all_test_preds.append(eval_model(model, test_loader))
+                all_test_preds.append(eval_model(model, test_loader, device))
 
                 models[f'model_{fold}{epoch}'] = model.state_dict()
                 ema.on_epoch_end(model)
@@ -301,7 +301,7 @@ def main():
             auc_score, _ = evaluator.get_final_metric(valid_preds)
             print(f'cv model \t auc={auc_score:.5f}')
 
-            ema_valid_preds_fold = eval_model(ema_model, valid_loader)
+            ema_valid_preds_fold = eval_model(ema_model, valid_loader, device)
             ema_valid_preds_fold[valid_nan_mask] = nan_pred
             auc_score, _ = evaluator.get_final_metric(ema_valid_preds_fold)
             print(f'EMA model \t auc={auc_score:.5f}')
@@ -310,7 +310,7 @@ def main():
             ema_train_preds[valid_idx] = ema_valid_preds_fold
 
             test_preds_fold = np.average(all_test_preds, weights=checkpoint_weights, axis=0)
-            ema_test_preds_fold = eval_model(ema_model, test_loader)
+            ema_test_preds_fold = eval_model(ema_model, test_loader, device)
 
             test_preds += test_preds_fold / config.n_splits
             ema_test_preds += ema_test_preds_fold / config.n_splits

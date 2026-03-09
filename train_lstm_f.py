@@ -18,13 +18,14 @@ from config.base import (
 
 from src.data import TextDataset
 from src.loss import CustomLoss
-from src.utils import timer, seed_torch, load_config
+from src.utils import timer, seed_torch, load_config, get_device
 from src.weights import training_weights
 
 from src.lstm_models.load_data import load_embedding
 from src.lstm_models.models import LstmGruNet
 from src.lstm_models.preprocess import preprocess
-from src.lstm_models.utils import train, predict, display_tables
+from src.lstm_models.utils import train, display_tables
+from src.language_models.utils import predict
 from src.lstm_models.tokenize import build_vocab, tokenize
 
 
@@ -46,12 +47,12 @@ def main():
     config.setdefault('device', 'cuda')
     config.setdefault('seed', 1029)
 
-    device = torch.device(config.device)
+    device = get_device()
 
-    OUT_DIR = Path(f'../output/lstm_f/')
+    OUT_DIR = Path(f'./output/lstm_f/')
     submission_file_name = 'valid_submission.csv' if args.valid else 'submission.csv'
     SUBMISSION_PATH = OUT_DIR / submission_file_name
-    OUT_DIR.mkdir(exist_ok=True)
+    OUT_DIR.mkdir(exist_ok=True, parents=True)
 
     warnings.filterwarnings('ignore')
     seed_torch(config.seed)
@@ -67,7 +68,7 @@ def main():
 
         train['comment_text'] = train['comment_text'].apply(preprocess)
         test['comment_text'] = test['comment_text'].apply(preprocess)
-        
+
         # replace blank with nan
         train['comment_text'].replace('', np.nan, inplace=True)
         test['comment_text'].replace('', np.nan, inplace=True)
@@ -78,7 +79,7 @@ def main():
         # fill up the missing values
         X_train = train['comment_text'].fillna('_##_').values
         X_test = test['comment_text'].fillna('_##_').values
-        
+
         # get the target values
         weights = training_weights(train, TOXICITY_COLUMN, IDENTITY_COLUMNS)
         loss_weight = 1.0 / weights.mean()

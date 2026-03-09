@@ -1,7 +1,2 @@
-from . import language_models
-from . import lstm_models
-from . import data
-from . import loss
-from . import metrics
-from . import utils
-from . import weights
+# Submodules are imported directly by training scripts as needed.
+# Removed eager imports to avoid requiring all dependencies (e.g., pytorch_pretrained_bert).
