@@ -12,16 +12,16 @@ __pycache__/
 *$py.class
 *.so
 
-# Jupyter Notebook
+# notebooks
 .ipynb_checkpoints
 single-lstm-3rd-place.ipynb
 
-# IDE / OS
+# ide and os garbage
 .DS_Store
 .vscode/
 .idea/
 
-# PyTorch & Machine Learning
+# pytorch and ml
 *.pth
 *.pt
 *.bin
