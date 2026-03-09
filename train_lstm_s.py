@@ -111,13 +111,13 @@ def main():
         y_identity_binary = (train_y_identity >= 0.5).astype(int)
 
         vocab = build_vocab(chain(train_x, test_x), config.max_features)
-        embedding_matrix = load_embedding(EMBEDDING_FASTTEXT, vocab['token2id'])
+        embedding_matrix = load_embedding(EMBEDDING_FASTTEXT, vocab['token2id'], config.max_features, 300)
 
         joblib.dump(vocab, OUT_DIR / 'vocab.pkl')
         np.save('embedding_matrix', embedding_matrix)
 
-        train_x = np.array(tokenize(train_x, vocab, config.max_len))
-        test_x = np.array(tokenize(test_x, vocab, config.max_len))
+        train_x = np.array(tokenize(train_x, vocab, config.max_len), dtype=object)
+        test_x = np.array(tokenize(test_x, vocab, config.max_len), dtype=object)
 
         models = {}
         train_preds = np.zeros((len(train_x)))

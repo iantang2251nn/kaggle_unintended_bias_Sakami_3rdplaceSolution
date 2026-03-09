@@ -14,15 +14,15 @@ OLD_IDENTITY_COLUMNS = [
 OLD_AUX_TOXICITY_COLUMNS = [
     'severe_toxic', 'obscene', 'threat', 'insult', 'identity_hate']
 
-EMBEDDING_FASTTEXT = '../input/fasttext-crawl-300d-2m/crawl-300d-2M.vec'
-EMBEDDING_GLOVE = '../input/glove840b300dtxt/glove.840B.300d.txt'
+EMBEDDING_FASTTEXT = './input/fasttext-crawl-300d-2m/crawl-300d-2M.vec'
+EMBEDDING_GLOVE = './input/glove840b300dtxt/glove.840B.300d.txt'
 
-DATA_DIR = Path('../input/jigsaw-unintended-bias-in-toxicity-classification/')
+DATA_DIR = Path('./input/jigsaw-unintended-bias-in-toxicity-classification/')
 TRAIN_DATA = DATA_DIR / 'train.csv'
 TEST_DATA = DATA_DIR / 'test.csv'
 SAMPLE_SUBMISSION = DATA_DIR / 'sample_submission.csv'
 
-OLD_DIR = Path('../input/jigsaw-toxic-comment-classification-challenge/')
+OLD_DIR = Path('./input/jigsaw-toxic-comment-classification-challenge/')
 TRAIN_OLD = OLD_DIR / 'train.csv'
 TEST_OLD = OLD_DIR / 'test.csv'
 SAMPLE_OLD = OLD_DIR / 'sample_submission.csv'

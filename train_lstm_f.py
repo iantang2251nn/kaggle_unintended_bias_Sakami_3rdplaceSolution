@@ -95,15 +95,15 @@ def main():
         test_nan_mask = X_test == '_##_'
 
         vocab = build_vocab(chain(X_train), config.max_features)
-        fasttext_embedding_matrix = load_embedding(EMBEDDING_FASTTEXT, vocab['token2id'])
-        glove_embedding_matrix = load_embedding(EMBEDDING_GLOVE, vocab['token2id'])
+        fasttext_embedding_matrix = load_embedding(EMBEDDING_FASTTEXT, vocab['token2id'], config.max_features, 300)
+        glove_embedding_matrix = load_embedding(EMBEDDING_GLOVE, vocab['token2id'], config.max_features, 300)
 
         joblib.dump(vocab, OUT_DIR / 'vocab.pkl')
         np.save(OUT_DIR / 'fasttext_embedding_matrix', fasttext_embedding_matrix)
         np.save(OUT_DIR / 'glove_embedding_matrix', glove_embedding_matrix)
 
-        X_train = np.array(tokenize(X_train, vocab, config.max_len))
-        X_test = np.array(tokenize(X_test, vocab, config.max_len))
+        X_train = np.array(tokenize(X_train, vocab, config.max_len), dtype=object)
+        X_test = np.array(tokenize(X_test, vocab, config.max_len), dtype=object)
 
         all_related_columns = [TOXICITY_COLUMN] + AUX_TOXICITY_COLUMNS + IDENTITY_COLUMNS
         negative_indices = np.arange(0, len(train))[
